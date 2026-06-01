@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: eventful-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: eventful
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - eventful-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: eventful-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - eventful-network
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: eventful-redis-insight
+    ports:
+      - "5540:5540"
+    networks:
+      - eventful-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  eventful-network:
+    driver: bridge
