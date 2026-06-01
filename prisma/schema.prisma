@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CREATOR
+  EVENTEE
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum TicketStatus {
+  ACTIVE
+  USED
+  REFUNDED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  EMAIL
+  PUSH
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  email         String    @unique
+  password      String
+  role          UserRole  @default(EVENTEE)
+  isActive      Boolean   @default(true) @map("is_active")
+  refreshToken  String?   @map("refresh_token")
+  passwordResetToken String? @map("password_reset_token")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  events        Event[]
+  tickets       Ticket[]
+  reminders     Reminder[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  creatorId   String      @map("creator_id")
+  title       String
+  description String      @db.Text
+  category    String
+  bannerImage String?     @map("banner_image")
+  venue       String
+  location    String
+  startDate   DateTime    @map("start_date")
+  endDate     DateTime    @map("end_date")
+  price       Float
+  quantity    Int
+  availableTickets Int    @default(0) @map("available_tickets")
+  status      EventStatus @default(DRAFT)
+  reminderSettings Json?   @map("reminder_settings")
+  shareableLink String?   @map("shareable_link")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  creator     User        @relation(fields: [creatorId], references: [id])
+  tickets     Ticket[]
+  reminders   Reminder[]
+  payments    Payment[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([category])
+  @@index([startDate])
+  @@map("events")
+}
+
+model Ticket {
+  id           String       @id @default(cuid())
+  eventId      String       @map("event_id")
+  attendeeId   String       @map("attendee_id")
+  ticketNumber String       @unique @map("ticket_number")
+  qrCode       String       @map("qr_code")
+  qrCodeUrl    String       @map("qr_code_url")
+  status       TicketStatus @default(ACTIVE)
+  purchaseDate DateTime     @default(now()) @map("purchase_date")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  event        Event        @relation(fields: [eventId], references: [id])
+  attendee     User         @relation(fields: [attendeeId], references: [id])
+  payment      Payment?
+  checkIns     CheckIn[]
+
+  @@unique([eventId, ticketNumber])
+  @@index([eventId])
+  @@index([attendeeId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  ticketId    String        @unique @map("ticket_id")
+  eventId     String        @map("event_id")
+  reference   String        @unique
+  amount      Float
+  status      PaymentStatus @default(PENDING)
+  paystackResponse Json?     @map("paystack_response")
+  paidAt      DateTime?     @map("paid_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  ticket      Ticket        @relation(fields: [ticketId], references: [id])
+  event       Event         @relation(fields: [eventId], references: [id])
+
+  @@index([reference])
+  @@index([status])
+  @@index([eventId])
+  @@map("payments")
+}
+
+model Reminder {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  eventId     String    @map("event_id")
+  reminderDate DateTime @map("reminder_date")
+  message     String
+  isSent      Boolean   @default(false) @map("is_sent")
+  sentAt      DateTime? @map("sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id])
+  event       Event     @relation(fields: [eventId], references: [id])
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([reminderDate])
+  @@index([isSent])
+  @@map("reminders")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String           @map("user_id")
+  type        NotificationType
+  title       String
+  message     String
+  status      NotificationStatus @default(PENDING)
+  metadata    Json?
+  sentAt      DateTime?        @map("sent_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user        User             @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model CheckIn {
+  id          String    @id @default(cuid())
+  ticketId    String    @map("ticket_id")
+  scannedBy   String    @map("scanned_by")
+  scannedAt   DateTime  @default(now()) @map("scanned_at")
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+
+  // Relations
+  ticket      Ticket    @relation(fields: [ticketId], references: [id])
+
+  @@unique([ticketId])
+  @@index([ticketId])
+  @@index([scannedAt])
+  @@map("check_ins")
+}
+
+model Cache {
+  key       String   @id
+  value     Json
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("caches")
+}
