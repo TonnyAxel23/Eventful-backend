@@ -4,6 +4,9 @@ import helmet from 'helmet';
 import { generalLimiter } from './middleware/rateLimit.middleware';
 import { errorHandler } from './middleware/error.middleware';
 import authRoutes from './modules/auth/routes/auth.routes';
+import eventRoutes from './modules/event/routes/event.routes';
+import paymentRoutes from './modules/payment/routes/payment.routes';
+import verificationRoutes from './modules/checkin/routes/verification.routes';
 import logger from './utils/logger';
 
 const app = express();
@@ -32,7 +35,11 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use(`/api/${process.env.API_VERSION || 'v1'}/auth`, authRoutes);
+const apiVersion = process.env.API_VERSION || 'v1';
+app.use(`/api/${apiVersion}/auth`, authRoutes);
+app.use(`/api/${apiVersion}/events`, eventRoutes);
+app.use(`/api/${apiVersion}/payments`, paymentRoutes);
+app.use(`/api/${apiVersion}/verify`, verificationRoutes);
 
 // 404 handler
 app.use((req, res) => {
